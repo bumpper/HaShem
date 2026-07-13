@@ -156,8 +156,8 @@ document.onkeypress=backhome
 <div class="hidden-title"><center><h1>HaShem</h1></center></p></div>
 <table width="100%" height="100%" cellpadding="0" cellspacing="0" border="0" align="center" valign="middle">
 <tr height="30" valign="top" align="center"><td style="30" valign="top" align="center">
-<div valign="top">
-	<select data-placeholder="&#x05D0;&#x05D4;&#x05D5;&#x05D4;" class="chosen-select" tabindex="" value="" id="namelist" name="namelist" style="width:350px; background-color: #000; color:#FFF; text-align:right; text-shadow: 0 0 5px #FFF; border-color: #000;" />
+<div style="position:fixed; top:0; left:50%; transform:translateX(-50%); display:inline-flex; align-items:flex-start; gap:10px; z-index:1000;">
+	<select data-placeholder="&#x05D0;&#x05D4;&#x05D5;&#x05D4;" class="chosen-select" tabindex="" value="" id="namelist" name="namelist" style="width:350px; background-color: #000; color:#FFF; text-align:right; text-shadow: 0 0 5px #FFF; border-color: #000;">
 	<option value="&#x05D9;&#x05D4;&#x05D5;&#x05D4;">&#x05D9;&#x05D4;&#x05D5;&#x05D4;</option><!--YHVH-->
 	<option value="&#x05D0;&#x05D1;&#x05D1;&#x05D0;">&#x05D0;&#x05D1;&#x05D1;&#x05D0;</option><!--Abba - Father-->
 	<option value="&#x05D0;&#x05D3;&#x05D9;&#x05E8;">&#x05D0;&#x05D3;&#x05D9;&#x05E8;</option><!--Adir - Strong One-->
@@ -280,7 +280,9 @@ document.onkeypress=backhome
 	<option value="&#x05D9;&#x05D1;&#x05DE;">&#x05D9;&#x05D1;&#x05DE;</option><!--Remove blockages for financial success YoBeMe-->
 	<option value="&#x05D4;&#x05D9;&#x05D9;">&#x05D4;&#x05D9;&#x05D9;</option><!--Prophecy & Intuition to transform consciousness HeYoYo-->
 	<option value="&#x05DE;&#x05D5;&#x05DE;">&#x05DE;&#x05D5;&#x05DE;</option><!--Spiritual Cleansing Cmproves Negotiations MeVaMe-->
-	</select><br />
+	</select>
+	<img id="fireToggle" src="whitefire.png" alt="Fire Effect" style="width:18px; height:24px; margin:0; display:inline-block; cursor:pointer;" title="Toggle fire effect" />
+</div>
 	<input type="text" name="namedisplay2" id="namedisplay2" size="50" STYLE="color: #444; text-align: center; font-family: Verdana; font-weight: bold; font-size: 12px; border-color: #010101; background-color: #000; padding:0px 0px; border:1px solid #000;" onchange="Display()"><br />
   <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.6.4/jquery.min.js" type="text/javascript"></script>
   <script src="chosen.jquery.js" type="text/javascript"></script>
@@ -295,15 +297,37 @@ document.onkeypress=backhome
     for (var selector in config) {
       $(selector).chosen(config[selector]);
     }
+
+    function applyTypedChosenSearch(event) {
+      if (event.key === 'Enter' || event.keyCode === 13) {
+        var typed = this.value.trim();
+        if (typed.length > 0) {
+          document.getElementById('namedisplay2').value = typed;
+          document.getElementById('namedisplay').innerHTML = typed;
+          localStorage.setItem('hashemSelectedName', typed);
+          event.preventDefault();
+          event.stopPropagation();
+          var $select = $(this).closest('.chosen-container').prev('select');
+          if ($select.length) {
+            $select.trigger('chosen:close');
+          }
+        }
+      }
+    }
+
+    $(document).delegate('.chosen-container .chosen-search input, .chosen-container-active .chosen-search input', 'keydown', applyTypedChosenSearch);
+    $('#namelist').bind('chosen:showing_dropdown', function() {
+      $(this).next('.chosen-container').find('.chosen-search input').unbind('keydown', applyTypedChosenSearch).bind('keydown', applyTypedChosenSearch);
+    });
   </script>
 
 <div id="box">
-<tr height="100%" valign="bottom" align="center">
+<tr height="100%" valign="center" align="center">
 <td style="height:100%" valign="middle" align="center">
 <span id="fade" style="color:#fff">
 <span id="flash">
 <span id="light">
-<div id="namedisplay" name="namedisplay" valign="bottom" class="fire"><!--class="fire"-->
+<div id="namedisplay" name="namedisplay" valign="center" class="fire"><!--class="fire"-->
 <font class="fire">&#x05D9;</font><font class="fire" style="animation-delay: .2s; -webkit-animation-delay: .2s; -moz-animation-delay: .2s; -ms-animation-delay: .2s;">&#x05D4;</font><font class="fire" style="animation-delay: .4s; -webkit-animation-delay: .4s; -moz-animation-delay: .4s; -ms-animation-delay: .4s;">&#x05D5;</font><font class="fire" style="animation-delay: .6s; -webkit-animation-delay: .6s; -moz-animation-delay: .6s; -ms-animation-delay: .6s;">&#x05D4</font>
 </div>
 </span>
@@ -338,6 +362,38 @@ select.onchange = function() {
 	document.getElementById("namedisplay").innerHTML = input.value;		//send input box value to div
 	// Save selection to localStorage
 	localStorage.setItem('hashemSelectedName', select.value);
+}
+
+var fireEnabled = true;
+var fireIcon = document.getElementById('fireToggle');
+
+function updateFireState() {
+	var namedisplay = document.getElementById('namedisplay');
+	var fireElements = namedisplay.querySelectorAll('.fire');
+	if (fireEnabled) {
+		namedisplay.classList.add('fire');
+		fireElements.forEach(function(el) {
+			el.classList.add('fire');
+		});
+		fireIcon.src = 'whitefire.png';
+		fireIcon.alt = 'Fire Enabled';
+		fireIcon.title = 'Click to disable fire effect';
+	} else {
+		namedisplay.classList.remove('fire');
+		fireElements.forEach(function(el) {
+			el.classList.remove('fire');
+		});
+		fireIcon.src = 'blackfire.png';
+		fireIcon.alt = 'Fire Disabled';
+		fireIcon.title = 'Click to enable fire effect';
+	}
+}
+
+if (fireIcon) {
+	fireIcon.addEventListener('click', function() {
+		fireEnabled = !fireEnabled;
+		updateFireState();
+	});
 }
 </script>
 <script type="text/javascript">
