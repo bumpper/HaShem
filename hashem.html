@@ -482,11 +482,24 @@ window.addEventListener('DOMContentLoaded', function() {
 });
 
 select.onchange = function() {
+	if (diceScatterMode) {
+		var layer = document.getElementById('nameAnimLayer');
+		if (layer) {
+			layer.innerHTML = '';
+		}
+		if (isVerticalLayout) {
+			isVerticalLayout = false;
+			updateNameOrientation();
+		}
+		diceScatterMode = false;
+	}
 	input.value = select.value;	//send dropdown value to input box
 	activeNameText = select.value;
 	currentDisplayMode = 'name';
 	previousNameText = '';
 	document.getElementById("namedisplay").innerHTML = input.value;		//send input box value to div
+	namedisplay.style.visibility = 'visible';
+	namedisplay.style.opacity = '1';
 	// Save selection to localStorage
 	localStorage.setItem('hashemSelectedName', select.value);
 }
@@ -505,6 +518,7 @@ var activeNameText = '';
 var currentDisplayMode = 'name';
 var previousNameText = '';
 var isVerticalLayout = false;
+var diceScatterMode = false;
 
 var letterValues = {
 	'א': 1,
@@ -691,6 +705,8 @@ function scatterDisplayedLetters() {
 	}
 	if (!sourceText) return;
 
+	diceScatterMode = true;
+
 	var chars = Array.from(sourceText);
 	var visibleChars = chars.filter(function(character) {
 		return character !== ' ';
@@ -773,6 +789,7 @@ function restoreDisplayFromScatterIfNeeded() {
 	if (rebuiltText) {
 		activeNameText = rebuiltText;
 	}
+	diceScatterMode = false;
 	layer.innerHTML = '';
 	return true;
 }
@@ -793,6 +810,7 @@ function updateNameOrientation() {
 		namedisplay.style.transform = 'translateX(-50%)';
 		namedisplay.style.writingMode = 'vertical-rl';
 		namedisplay.style.textOrientation = 'upright';
+		namedisplay.style.letterSpacing = 'calc(-0.5em + 8px)';
 		namedisplay.style.whiteSpace = 'pre-wrap';
 		namedisplay.style.display = 'inline-block';
 		namedisplay.style.textAlign = 'center';
@@ -808,6 +826,7 @@ function updateNameOrientation() {
 		namedisplay.style.transform = '';
 		namedisplay.style.writingMode = 'horizontal-tb';
 		namedisplay.style.textOrientation = 'mixed';
+		namedisplay.style.letterSpacing = '';
 		namedisplay.style.whiteSpace = 'normal';
 		namedisplay.style.display = 'block';
 		namedisplay.style.textAlign = 'center';
