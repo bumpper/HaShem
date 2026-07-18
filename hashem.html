@@ -133,6 +133,22 @@
 	will-change: left, top, opacity;
 	white-space: pre;
 }
+.scatter-letter {
+	position: absolute;
+	left: 50%;
+	top: 50%;
+	transform: translate(-50%, -50%) rotate(0deg);
+	font-family: FrankRuehl, Narkisim, David, Aharoni, Verdana, serif;
+	font-weight: 900;
+	font-size: 72px;
+	line-height: 1;
+	color: #fff;
+	text-shadow: 0 0 12px rgba(255,255,255,0.7);
+	opacity: 0;
+	transition: left 1.4s cubic-bezier(0.23, 1, 0.32, 1), top 1.4s cubic-bezier(0.23, 1, 0.32, 1), transform 1.4s cubic-bezier(0.23, 1, 0.32, 1), opacity 0.6s ease;
+	will-change: left, top, transform, opacity;
+	white-space: pre;
+}
 </style>
 
 <script language="javascript">
@@ -210,7 +226,7 @@ document.onkeypress=backhome
 <div class="hidden-title"><center><h1>HaShem</h1></center></p></div>
 <table width="100%" height="100%" cellpadding="0" cellspacing="0" border="0" align="center" valign="middle">
 <tr height="30" valign="top" align="center"><td style="30" valign="top" align="center">
-<div style="position:fixed; top:0; left:50%; transform:translateX(-50%); display:inline-flex; align-items:flex-start; gap:10px; z-index:1000;">
+<div id="topControls" style="position:fixed; top:0; left:50%; transform:translateX(-50%); display:inline-flex; align-items:flex-start; gap:10px; z-index:1000;">
 	<img id="arrowIcon" src="whiteaarow.png" alt="Arrow Icon" style="width:18px; height:24px; margin:0; display:inline-block; cursor:pointer;" title="Arrow icon" />
 	<div id="controlBar" style="display:inline-flex; align-items:flex-start; gap:10px;">
 	<select data-placeholder="&#x05D0;&#x05D4;&#x05D5;&#x05D4;" class="chosen-select" tabindex="" value="" id="namelist" name="namelist" style="width:350px; background-color: #000; color:#FFF; text-align:right; text-shadow: 0 0 5px #FFF; border-color: #000;">
@@ -339,6 +355,8 @@ document.onkeypress=backhome
 	</select>
 	<img id="fireToggle" src="whitefire.png" alt="Fire Effect" style="width:18px; height:24px; margin:0; display:inline-block; cursor:pointer;" title="Toggle fire effect" />
 	<img id="randomIcon" src="whiterandom.png" alt="Random Effect" style="width:18px; height:24px; margin-left:1px; display:inline-block; cursor:pointer;" title="Random effect" />
+	<img id="nameOrientationIcon" src="verticalarrow.png" alt="Switch to vertical name layout" style="width:18px; height:24px; margin-left:1px; display:inline-block; cursor:pointer;" title="Switch to vertical name layout" />
+	<img id="diceIcon" src="whitedice.png" alt="Scatter letters" style="width:18px; height:24px; margin-left:1px; display:inline-block; cursor:pointer;" title="Scatter letters" />
 	</div>
 </div>
 	<input type="text" name="namedisplay2" id="namedisplay2" size="50" STYLE="color: #444; text-align: center; font-family: Verdana; font-weight: bold; font-size: 12px; border-color: #010101; background-color: #000; padding:0px 0px; border:1px solid #000;" onchange="Display()"><br />
@@ -477,12 +495,16 @@ var fireEnabled = true;
 var fireIcon = document.getElementById('fireToggle');
 var arrowIcon = document.getElementById('arrowIcon');
 var randomIcon = document.getElementById('randomIcon');
+var nameOrientationIcon = document.getElementById('nameOrientationIcon');
+var diceIcon = document.getElementById('diceIcon');
 var controlBar = document.getElementById('controlBar');
+var topControls = document.getElementById('topControls');
 var arrowToggled = false;
 var controlsHidden = false;
 var activeNameText = '';
 var currentDisplayMode = 'name';
 var previousNameText = '';
+var isVerticalLayout = false;
 
 var letterValues = {
 	'א': 1,
@@ -654,6 +676,149 @@ function randomizeNameDisplay() {
 	requestAnimationFrame(animateOrbit);
 }
 
+function scatterDisplayedLetters() {
+	var display = document.getElementById('namedisplay');
+	var input = document.getElementById('namedisplay2');
+	var layer = document.getElementById('nameAnimLayer');
+	if (!display || !layer) return;
+
+	var sourceText = (display.textContent || '').trim();
+	if (!sourceText && input && input.value) {
+		sourceText = input.value.trim();
+	}
+	if (!sourceText && activeNameText) {
+		sourceText = activeNameText;
+	}
+	if (!sourceText) return;
+
+	var chars = Array.from(sourceText);
+	var visibleChars = chars.filter(function(character) {
+		return character !== ' ';
+	});
+	if (visibleChars.length === 0) return;
+
+	layer.innerHTML = '';
+	display.style.visibility = 'hidden';
+	display.style.opacity = '0';
+
+	var width = window.innerWidth;
+	var height = window.innerHeight;
+	var margin = 28;
+	var minTop = margin;
+	if (topControls) {
+		minTop = Math.ceil(topControls.getBoundingClientRect().bottom + 14);
+	}
+	minTop = Math.min(minTop, Math.max(margin, height - margin));
+
+	var baseFontSize = parseFloat(getComputedStyle(display).fontSize);
+	if (!baseFontSize || isNaN(baseFontSize)) {
+		baseFontSize = 72;
+	}
+
+	visibleChars.forEach(function(character) {
+		var span = document.createElement('span');
+		span.className = 'scatter-letter';
+		span.textContent = character;
+		span.style.left = (width / 2) + 'px';
+		span.style.top = Math.max(minTop + 30, height / 2) + 'px';
+		span.style.fontSize = baseFontSize + 'px';
+		layer.appendChild(span);
+	});
+
+	requestAnimationFrame(function() {
+		var letters = layer.querySelectorAll('.scatter-letter');
+		for (var i = 0; i < letters.length; i++) {
+			var letter = letters[i];
+			var x = margin + Math.random() * Math.max(1, width - (margin * 2));
+			var y = minTop + Math.random() * Math.max(1, height - minTop - margin);
+			var rotate = Math.floor(Math.random() * 360);
+			var scale = 0.72 + (Math.random() * 0.9);
+			letter.style.left = x + 'px';
+			letter.style.top = y + 'px';
+			letter.style.transform = 'translate(-50%, -50%) rotate(' + rotate + 'deg) scale(' + scale.toFixed(2) + ')';
+			letter.style.opacity = '1';
+		}
+	});
+}
+
+function restoreDisplayFromScatterIfNeeded() {
+	var display = document.getElementById('namedisplay');
+	var input = document.getElementById('namedisplay2');
+	var layer = document.getElementById('nameAnimLayer');
+	if (!display || !layer) {
+		return false;
+	}
+
+	var scatteredLetters = layer.querySelectorAll('.scatter-letter');
+	if (!scatteredLetters || scatteredLetters.length === 0) {
+		return false;
+	}
+
+	var rebuiltText = '';
+	for (var i = 0; i < scatteredLetters.length; i++) {
+		rebuiltText += scatteredLetters[i].textContent || '';
+	}
+	rebuiltText = rebuiltText.trim();
+
+	if (!rebuiltText) {
+		rebuiltText = (input && input.value ? input.value.trim() : '') || activeNameText || '';
+	}
+
+	display.innerHTML = rebuiltText;
+	display.style.visibility = 'visible';
+	display.style.opacity = '1';
+	if (input && rebuiltText) {
+		input.value = rebuiltText;
+	}
+	if (rebuiltText) {
+		activeNameText = rebuiltText;
+	}
+	layer.innerHTML = '';
+	return true;
+}
+
+function updateNameOrientation() {
+	if (!namedisplay) {
+		return;
+	}
+
+	if (isVerticalLayout) {
+		var topOffset = 44;
+		if (topControls) {
+			topOffset = Math.ceil(topControls.getBoundingClientRect().bottom + 10);
+		}
+		namedisplay.style.position = 'fixed';
+		namedisplay.style.top = topOffset + 'px';
+		namedisplay.style.left = '50%';
+		namedisplay.style.transform = 'translateX(-50%)';
+		namedisplay.style.writingMode = 'vertical-rl';
+		namedisplay.style.textOrientation = 'upright';
+		namedisplay.style.whiteSpace = 'pre-wrap';
+		namedisplay.style.display = 'inline-block';
+		namedisplay.style.textAlign = 'center';
+		if (nameOrientationIcon) {
+			nameOrientationIcon.src = 'horizontalarrow.png';
+			nameOrientationIcon.alt = 'Switch to horizontal name layout';
+			nameOrientationIcon.title = 'Switch to horizontal name layout';
+		}
+	} else {
+		namedisplay.style.position = '';
+		namedisplay.style.top = '';
+		namedisplay.style.left = '';
+		namedisplay.style.transform = '';
+		namedisplay.style.writingMode = 'horizontal-tb';
+		namedisplay.style.textOrientation = 'mixed';
+		namedisplay.style.whiteSpace = 'normal';
+		namedisplay.style.display = 'block';
+		namedisplay.style.textAlign = 'center';
+		if (nameOrientationIcon) {
+			nameOrientationIcon.src = 'verticalarrow.png';
+			nameOrientationIcon.alt = 'Switch to vertical name layout';
+			nameOrientationIcon.title = 'Switch to vertical name layout';
+		}
+	}
+}
+
 function updateFireState() {
 	var namedisplay = document.getElementById('namedisplay');
 	var fireElements = namedisplay.querySelectorAll('.fire');
@@ -702,11 +867,27 @@ if (randomIcon) {
 	});
 }
 
+if (nameOrientationIcon) {
+	nameOrientationIcon.addEventListener('click', function() {
+		restoreDisplayFromScatterIfNeeded();
+		isVerticalLayout = !isVerticalLayout;
+		updateNameOrientation();
+	});
+}
+
+if (diceIcon) {
+	diceIcon.addEventListener('click', function() {
+		scatterDisplayedLetters();
+	});
+}
+
 if (namedisplay) {
 	namedisplay.addEventListener('dblclick', function() {
 		toggleNameDisplayMode();
 	});
 }
+
+updateNameOrientation();
 </script>
 <script type="text/javascript">
 function Display(){
