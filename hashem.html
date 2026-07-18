@@ -148,12 +148,39 @@
 	transition: left 1.4s cubic-bezier(0.23, 1, 0.32, 1), top 1.4s cubic-bezier(0.23, 1, 0.32, 1), transform 1.4s cubic-bezier(0.23, 1, 0.32, 1), opacity 0.6s ease;
 	will-change: left, top, transform, opacity;
 	white-space: pre;
+	cursor: grab;
+	touch-action: none;
+	pointer-events: auto;
+}
+.scatter-letter.dragging {
+	cursor: grabbing;
 }
 #topControls {
-	z-index: 10000 !important;
+	position: fixed !important;
+	z-index: 2147483646 !important;
 }
 .chosen-container .chosen-drop {
-	z-index: 10001 !important;
+	z-index: 2147483647 !important;
+}
+#controlBar,
+#topControls img,
+#topControls .chosen-container {
+	position: relative;
+	z-index: 2147483647 !important;
+}
+#namedisplay {
+	position: relative;
+	z-index: 1;
+}
+html.theme-inverted {
+	filter: invert(1);
+	background: #fff;
+}
+html.theme-inverted #themeToggleIcon {
+	filter: invert(1);
+}
+html.theme-inverted .chosen-container .chosen-results li.highlighted {
+	filter: invert(1);
 }
 </style>
 
@@ -363,6 +390,7 @@ document.onkeypress=backhome
 	<img id="randomIcon" src="whiterandom.png" alt="Random Effect" style="width:18px; height:24px; margin-left:1px; display:inline-block; cursor:pointer;" title="Random effect" />
 	<img id="nameOrientationIcon" src="verticalarrow.png" alt="Switch to vertical name layout" style="width:18px; height:24px; margin-left:1px; display:inline-block; cursor:pointer;" title="Switch to vertical name layout" />
 	<img id="diceIcon" src="whitedice.png" alt="Scatter letters" style="width:18px; height:24px; margin-left:1px; display:inline-block; cursor:pointer;" title="Scatter letters" />
+	<img id="themeToggleIcon" src="whitemoon.png" alt="Invert color scheme" style="width:18px; height:24px; margin-left:1px; display:inline-block; cursor:pointer;" title="Invert color scheme" />
 	</div>
 </div>
 	<input type="text" name="namedisplay2" id="namedisplay2" size="50" STYLE="color: #444; text-align: center; font-family: Verdana; font-weight: bold; font-size: 12px; border-color: #010101; background-color: #000; padding:0px 0px; border:1px solid #000;" onchange="Display()"><br />
@@ -516,6 +544,7 @@ var arrowIcon = document.getElementById('arrowIcon');
 var randomIcon = document.getElementById('randomIcon');
 var nameOrientationIcon = document.getElementById('nameOrientationIcon');
 var diceIcon = document.getElementById('diceIcon');
+var themeToggleIcon = document.getElementById('themeToggleIcon');
 var controlBar = document.getElementById('controlBar');
 var topControls = document.getElementById('topControls');
 var arrowToggled = false;
@@ -525,6 +554,68 @@ var currentDisplayMode = 'name';
 var previousNameText = '';
 var isVerticalLayout = false;
 var diceScatterMode = false;
+var isInvertedTheme = false;
+var activeDragLetter = null;
+var dragPointerId = null;
+var dragOffsetX = 0;
+var dragOffsetY = 0;
+
+function setScatterInteractionEnabled(enabled) {
+	var layer = document.getElementById('nameAnimLayer');
+	if (!layer) return;
+	layer.style.pointerEvents = enabled ? 'auto' : 'none';
+	layer.style.touchAction = enabled ? 'none' : 'auto';
+	if (!enabled) {
+		activeDragLetter = null;
+		dragPointerId = null;
+	}
+}
+
+function getScatterTransform(letter) {
+	var rotate = letter && letter.dataset && letter.dataset.rotate ? letter.dataset.rotate : '0';
+	var scale = letter && letter.dataset && letter.dataset.scale ? letter.dataset.scale : '1';
+	return 'translate(-50%, -50%) rotate(' + rotate + 'deg) scale(' + scale + ')';
+}
+
+function beginScatterDrag(event) {
+	if (!diceScatterMode) return;
+	var target = event.target;
+	if (!target || !target.classList || !target.classList.contains('scatter-letter')) return;
+	activeDragLetter = target;
+	dragPointerId = event.pointerId;
+	var left = parseFloat(target.style.left) || 0;
+	var top = parseFloat(target.style.top) || 0;
+	dragOffsetX = event.clientX - left;
+	dragOffsetY = event.clientY - top;
+	target.classList.add('dragging');
+	if (typeof target.setPointerCapture === 'function') {
+		target.setPointerCapture(event.pointerId);
+	}
+	event.preventDefault();
+}
+
+function moveScatterDrag(event) {
+	if (!activeDragLetter || dragPointerId !== event.pointerId) return;
+	activeDragLetter.style.left = (event.clientX - dragOffsetX) + 'px';
+	activeDragLetter.style.top = (event.clientY - dragOffsetY) + 'px';
+	activeDragLetter.style.transform = getScatterTransform(activeDragLetter);
+	event.preventDefault();
+}
+
+function endScatterDrag(event) {
+	if (!activeDragLetter || dragPointerId !== event.pointerId) return;
+	activeDragLetter.classList.remove('dragging');
+	if (typeof activeDragLetter.releasePointerCapture === 'function') {
+		activeDragLetter.releasePointerCapture(event.pointerId);
+	}
+	activeDragLetter = null;
+	dragPointerId = null;
+}
+
+window.addEventListener('pointerdown', beginScatterDrag, { passive: false });
+window.addEventListener('pointermove', moveScatterDrag, { passive: false });
+window.addEventListener('pointerup', endScatterDrag, { passive: false });
+window.addEventListener('pointercancel', endScatterDrag, { passive: false });
 
 var letterValues = {
 	'א': 1,
@@ -609,6 +700,7 @@ function randomizeNameDisplay() {
 	var layer = document.getElementById('nameAnimLayer');
 	if (!layer) return;
 	layer.innerHTML = '';
+	setScatterInteractionEnabled(false);
 
 	if (display) {
 		display.innerHTML = '';
@@ -712,6 +804,7 @@ function scatterDisplayedLetters() {
 	if (!sourceText) return;
 
 	diceScatterMode = true;
+	setScatterInteractionEnabled(true);
 
 	var chars = Array.from(sourceText);
 	var visibleChars = chars.filter(function(character) {
@@ -755,9 +848,11 @@ function scatterDisplayedLetters() {
 			var y = minTop + Math.random() * Math.max(1, height - minTop - margin);
 			var rotate = Math.floor(Math.random() * 360);
 			var scale = 0.72 + (Math.random() * 0.9);
+			letter.dataset.rotate = String(rotate);
+			letter.dataset.scale = scale.toFixed(2);
 			letter.style.left = x + 'px';
 			letter.style.top = y + 'px';
-			letter.style.transform = 'translate(-50%, -50%) rotate(' + rotate + 'deg) scale(' + scale.toFixed(2) + ')';
+			letter.style.transform = getScatterTransform(letter);
 			letter.style.opacity = '1';
 		}
 	});
@@ -797,6 +892,7 @@ function restoreDisplayFromScatterIfNeeded() {
 	}
 	diceScatterMode = false;
 	layer.innerHTML = '';
+	setScatterInteractionEnabled(false);
 	return true;
 }
 
@@ -810,16 +906,50 @@ function updateNameOrientation() {
 		if (topControls) {
 			topOffset = Math.ceil(topControls.getBoundingClientRect().bottom + 10);
 		}
-		namedisplay.style.position = 'fixed';
-		namedisplay.style.top = topOffset + 'px';
-		namedisplay.style.left = '50%';
-		namedisplay.style.transform = 'translateX(-50%)';
+		document.body.style.position = 'relative';
+		document.body.style.top = '0';
+		document.body.style.left = '0';
+		document.body.style.display = 'block';
+		document.body.style.margin = '0';
+		document.body.style.transform = 'none';
+		document.body.style.webkitTransform = 'none';
+		document.body.style.mozTransform = 'none';
+		document.body.style.msTransform = 'none';
+		namedisplay.style.position = 'relative';
+		namedisplay.style.top = '0';
+		namedisplay.style.left = '0';
+		namedisplay.style.transform = 'none';
+		namedisplay.style.marginTop = topOffset + 'px';
 		namedisplay.style.writingMode = 'vertical-rl';
 		namedisplay.style.textOrientation = 'upright';
-		namedisplay.style.letterSpacing = 'calc(-0.5em + 8px)';
+		namedisplay.style.zIndex = '1';
+		namedisplay.style.letterSpacing = '-0.12em';
 		namedisplay.style.whiteSpace = 'pre-wrap';
 		namedisplay.style.display = 'inline-block';
 		namedisplay.style.textAlign = 'center';
+		namedisplay.style.overflowAnchor = 'none';
+		namedisplay.style.maxHeight = 'none';
+		namedisplay.style.overflowY = 'visible';
+		namedisplay.style.overflowX = 'visible';
+		namedisplay.style.paddingBottom = '0.2em';
+		if (topControls) {
+			topControls.style.position = 'fixed';
+			topControls.style.top = '0';
+			topControls.style.left = '50%';
+			topControls.style.transform = 'translateX(-50%)';
+			topControls.style.display = 'inline-flex';
+			topControls.style.visibility = 'visible';
+		}
+		controlsHidden = false;
+		if (controlBar) {
+			controlBar.style.display = 'inline-flex';
+			controlBar.style.visibility = 'visible';
+		}
+		document.documentElement.style.overflowY = 'auto';
+		document.body.style.overflowY = 'auto';
+		document.documentElement.style.scrollBehavior = 'smooth';
+		document.body.style.scrollBehavior = 'smooth';
+		document.body.style.minHeight = '';
 		if (nameOrientationIcon) {
 			nameOrientationIcon.src = 'horizontalarrow.png';
 			nameOrientationIcon.alt = 'Switch to horizontal name layout';
@@ -830,12 +960,33 @@ function updateNameOrientation() {
 		namedisplay.style.top = '';
 		namedisplay.style.left = '';
 		namedisplay.style.transform = '';
+		namedisplay.style.marginTop = '';
 		namedisplay.style.writingMode = 'horizontal-tb';
 		namedisplay.style.textOrientation = 'mixed';
+		namedisplay.style.zIndex = '1';
 		namedisplay.style.letterSpacing = '';
 		namedisplay.style.whiteSpace = 'normal';
 		namedisplay.style.display = 'block';
 		namedisplay.style.textAlign = 'center';
+		namedisplay.style.maxHeight = '';
+		namedisplay.style.overflowY = '';
+		namedisplay.style.overflowX = '';
+		namedisplay.style.overflowAnchor = '';
+		namedisplay.style.paddingBottom = '';
+		document.body.style.position = '';
+		document.body.style.top = '';
+		document.body.style.left = '';
+		document.body.style.display = '';
+		document.body.style.margin = '';
+		document.body.style.transform = '';
+		document.body.style.webkitTransform = '';
+		document.body.style.mozTransform = '';
+		document.body.style.msTransform = '';
+		document.documentElement.style.overflowY = '';
+		document.body.style.overflowY = '';
+		document.documentElement.style.scrollBehavior = '';
+		document.body.style.scrollBehavior = '';
+		document.body.style.minHeight = '';
 		if (nameOrientationIcon) {
 			nameOrientationIcon.src = 'verticalarrow.png';
 			nameOrientationIcon.alt = 'Switch to vertical name layout';
@@ -863,6 +1014,30 @@ function updateFireState() {
 		fireIcon.src = 'blackfire.png';
 		fireIcon.alt = 'Fire Disabled';
 		fireIcon.title = 'Click to enable fire effect';
+	}
+}
+
+function setInvertedTheme(enabled) {
+	isInvertedTheme = !!enabled;
+	if (isInvertedTheme) {
+		document.documentElement.classList.add('theme-inverted');
+		if (themeToggleIcon) {
+			themeToggleIcon.src = 'blacksun.png';
+			themeToggleIcon.alt = 'Restore default color scheme';
+			themeToggleIcon.title = 'Restore default color scheme';
+		}
+	} else {
+		document.documentElement.classList.remove('theme-inverted');
+		if (themeToggleIcon) {
+			themeToggleIcon.src = 'whitemoon.png';
+			themeToggleIcon.alt = 'Invert color scheme';
+			themeToggleIcon.title = 'Invert color scheme';
+		}
+	}
+	try {
+		localStorage.setItem('hashemInvertedTheme', isInvertedTheme ? '1' : '0');
+	} catch (err) {
+		// Ignore storage errors to keep toggle functional.
 	}
 }
 
@@ -906,6 +1081,12 @@ if (diceIcon) {
 	});
 }
 
+if (themeToggleIcon) {
+	themeToggleIcon.addEventListener('click', function() {
+		setInvertedTheme(!isInvertedTheme);
+	});
+}
+
 if (namedisplay) {
 	namedisplay.addEventListener('dblclick', function() {
 		toggleNameDisplayMode();
@@ -913,6 +1094,18 @@ if (namedisplay) {
 }
 
 updateNameOrientation();
+
+window.addEventListener('resize', function() {
+	if (isVerticalLayout) {
+		updateNameOrientation();
+	}
+});
+
+try {
+	setInvertedTheme(localStorage.getItem('hashemInvertedTheme') === '1');
+} catch (err) {
+	setInvertedTheme(false);
+}
 </script>
 <script type="text/javascript">
 function Display(){
