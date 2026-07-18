@@ -149,6 +149,12 @@
 	will-change: left, top, transform, opacity;
 	white-space: pre;
 }
+#topControls {
+	z-index: 10000 !important;
+}
+.chosen-container .chosen-drop {
+	z-index: 10001 !important;
+}
 </style>
 
 <script language="javascript">
@@ -226,7 +232,7 @@ document.onkeypress=backhome
 <div class="hidden-title"><center><h1>HaShem</h1></center></p></div>
 <table width="100%" height="100%" cellpadding="0" cellspacing="0" border="0" align="center" valign="middle">
 <tr height="30" valign="top" align="center"><td style="30" valign="top" align="center">
-<div id="topControls" style="position:fixed; top:0; left:50%; transform:translateX(-50%); display:inline-flex; align-items:flex-start; gap:10px; z-index:1000;">
+<div id="topControls" style="position:fixed; top:0; left:50%; transform:translateX(-50%); display:inline-flex; align-items:flex-start; gap:10px; z-index:10000;">
 	<img id="arrowIcon" src="whiteaarow.png" alt="Arrow Icon" style="width:18px; height:24px; margin:0; display:inline-block; cursor:pointer;" title="Arrow icon" />
 	<div id="controlBar" style="display:inline-flex; align-items:flex-start; gap:10px;">
 	<select data-placeholder="&#x05D0;&#x05D4;&#x05D5;&#x05D4;" class="chosen-select" tabindex="" value="" id="namelist" name="namelist" style="width:350px; background-color: #000; color:#FFF; text-align:right; text-shadow: 0 0 5px #FFF; border-color: #000;">
