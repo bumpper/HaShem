@@ -92,7 +92,7 @@
 .chosen-clipboard-btn {
 	position: absolute;
 	top: 50%;
-	right: 22px;
+	right: 27px;
 	transform: translateY(-50%);
 	width: 14px;
 	height: 14px;
@@ -180,6 +180,9 @@ html.theme-inverted #themeToggleIcon {
 	filter: invert(1);
 }
 html.theme-inverted .chosen-container .chosen-results li.highlighted {
+	filter: invert(1);
+}
+html.theme-inverted .emoji-no-invert {
 	filter: invert(1);
 }
 </style>
@@ -391,6 +394,8 @@ document.onkeypress=backhome
 	<img id="randomIcon" src="whiterandom.png" alt="Random Effect" style="width:18px; height:24px; margin-left:1px; display:inline-block; cursor:pointer;" title="Random effect" />
 	<img id="nameOrientationIcon" src="verticalarrow.png" alt="Switch to vertical name layout" style="width:18px; height:24px; margin-left:1px; display:inline-block; cursor:pointer;" title="Switch to vertical name layout" />
 	<img id="diceIcon" src="whitedice.png" alt="Scatter letters" style="width:18px; height:24px; margin-left:1px; display:inline-block; cursor:pointer;" title="Scatter letters" />
+	<img id="minusIcon" src="whiteminus.png" alt="Minus" style="width:18px; height:24px; margin-left:1px; display:inline-block; cursor:pointer;" title="Minus" />
+	<img id="plusIcon" src="whiteplus.png" alt="Plus" style="width:18px; height:24px; margin-left:1px; display:inline-block; cursor:pointer;" title="Plus" />
 	<img id="themeToggleIcon" src="whitemoon.png" alt="Invert color scheme" style="width:18px; height:24px; margin-left:1px; display:inline-block; cursor:pointer;" title="Invert color scheme" />
 	</div>
 </div>
@@ -469,11 +474,17 @@ document.onkeypress=backhome
 			var $searchInput = $(this).next('.chosen-container').find('.chosen-search input');
 			$searchInput.unbind('keydown', applyTypedChosenSearch).bind('keydown', applyTypedChosenSearch);
 			addClipboardButton($searchInput);
+			if (typeof updateNoInvertEmojiTargets === 'function') {
+				updateNoInvertEmojiTargets();
+			}
     });
 
 		var $initialSearchInput = $('#namelist').next('.chosen-container').find('.chosen-search input');
 		if ($initialSearchInput.length) {
 			addClipboardButton($initialSearchInput);
+		}
+		if (typeof updateNoInvertEmojiTargets === 'function') {
+			updateNoInvertEmojiTargets();
 		}
   </script>
 
@@ -527,6 +538,7 @@ window.addEventListener('DOMContentLoaded', function() {
 		if (typeof jQuery !== 'undefined' && jQuery(select).data('chosen')) {
 			jQuery(select).trigger('chosen:updated');
 		}
+		updateNoInvertEmojiTargets();
 	}
 });
 
@@ -554,6 +566,7 @@ select.onchange = function() {
 	namedisplay.style.opacity = '1';
 	// Save selection to localStorage
 	localStorage.setItem('hashemSelectedName', select.value);
+	updateNoInvertEmojiTargets();
 }
 
 var fireEnabled = true;
@@ -562,6 +575,8 @@ var arrowIcon = document.getElementById('arrowIcon');
 var randomIcon = document.getElementById('randomIcon');
 var nameOrientationIcon = document.getElementById('nameOrientationIcon');
 var diceIcon = document.getElementById('diceIcon');
+var minusIcon = document.getElementById('minusIcon');
+var plusIcon = document.getElementById('plusIcon');
 var themeToggleIcon = document.getElementById('themeToggleIcon');
 var controlBar = document.getElementById('controlBar');
 var topControls = document.getElementById('topControls');
@@ -577,6 +592,47 @@ var activeDragLetter = null;
 var dragPointerId = null;
 var dragOffsetX = 0;
 var dragOffsetY = 0;
+var centerResizePointerId = null;
+var centerResizeActive = false;
+var scatterFontMinPx = 18;
+var scatterFontMaxPx = 420;
+var scatterWheelStepPx = 14;
+var scatterWheelRotateStepDeg = 14;
+
+function clampFontSize(value) {
+	return Math.max(12, Math.min(420, value));
+}
+
+function adjustDisplayFontSize(delta) {
+	var layer = document.getElementById('nameAnimLayer');
+	var updatedAnyScatterLetter = false;
+
+	if (diceScatterMode && layer) {
+		var letters = layer.querySelectorAll('.scatter-letter');
+		for (var i = 0; i < letters.length; i++) {
+			var letter = letters[i];
+			var letterSize = parseFloat(letter.style.fontSize);
+			if (!letterSize || isNaN(letterSize)) {
+				letterSize = parseFloat(window.getComputedStyle(letter).fontSize) || 72;
+			}
+			letter.style.fontSize = clampFontSize(letterSize + delta) + 'px';
+			updatedAnyScatterLetter = true;
+		}
+	}
+
+	if (updatedAnyScatterLetter) {
+		return;
+	}
+
+	if (!namedisplay) {
+		return;
+	}
+	var currentSize = parseFloat(namedisplay.style.fontSize);
+	if (!currentSize || isNaN(currentSize)) {
+		currentSize = parseFloat(window.getComputedStyle(namedisplay).fontSize) || 72;
+	}
+	namedisplay.style.fontSize = clampFontSize(currentSize + delta) + 'px';
+}
 
 function setScatterInteractionEnabled(enabled) {
 	var layer = document.getElementById('nameAnimLayer');
@@ -597,6 +653,7 @@ function getScatterTransform(letter) {
 
 function beginScatterDrag(event) {
 	if (!diceScatterMode) return;
+	if (event.button !== 0) return;
 	var target = event.target;
 	if (!target || !target.classList || !target.classList.contains('scatter-letter')) return;
 	activeDragLetter = target;
@@ -630,10 +687,77 @@ function endScatterDrag(event) {
 	dragPointerId = null;
 }
 
+function beginCenterResizeHold(event) {
+	if (!namedisplay) return;
+	if (diceScatterMode) return;
+	if (event.button !== 0) return;
+	var target = event.target;
+	if (target !== namedisplay && !namedisplay.contains(target)) return;
+	centerResizeActive = true;
+	centerResizePointerId = event.pointerId;
+	if (typeof namedisplay.setPointerCapture === 'function') {
+		namedisplay.setPointerCapture(event.pointerId);
+	}
+	event.preventDefault();
+}
+
+function endCenterResizeHold(event) {
+	if (!centerResizeActive || centerResizePointerId !== event.pointerId) return;
+	if (namedisplay && typeof namedisplay.releasePointerCapture === 'function') {
+		namedisplay.releasePointerCapture(event.pointerId);
+	}
+	centerResizeActive = false;
+	centerResizePointerId = null;
+}
+
+function resizeActiveScatterLetterWithWheel(event) {
+	var direction = event.deltaY < 0 ? 1 : -1;
+	var hasScatterLetter = !!(activeDragLetter && activeDragLetter.classList && activeDragLetter.classList.contains('scatter-letter'));
+	if (!hasScatterLetter && !centerResizeActive) return;
+
+	if (hasScatterLetter) {
+	var isRotateMode = !!(event.shiftKey || event.ctrlKey || event.metaKey);
+	if (isRotateMode) {
+		var currentRotate = parseFloat(activeDragLetter.dataset.rotate || '0');
+		if (isNaN(currentRotate)) {
+			currentRotate = 0;
+		}
+		var nextRotate = currentRotate + (direction * scatterWheelRotateStepDeg);
+		activeDragLetter.dataset.rotate = String(nextRotate);
+		activeDragLetter.style.transform = getScatterTransform(activeDragLetter);
+		event.preventDefault();
+		return;
+	}
+
+	var currentFontSize = parseFloat(activeDragLetter.style.fontSize);
+	if (!currentFontSize || isNaN(currentFontSize)) {
+		currentFontSize = parseFloat(window.getComputedStyle(activeDragLetter).fontSize) || 72;
+	}
+
+	var nextFontSize = currentFontSize + (direction * scatterWheelStepPx);
+	nextFontSize = Math.max(scatterFontMinPx, Math.min(scatterFontMaxPx, nextFontSize));
+	activeDragLetter.style.fontSize = nextFontSize + 'px';
+	event.preventDefault();
+		return;
+	}
+
+	if (centerResizeActive && namedisplay) {
+		var displayFontSize = parseFloat(namedisplay.style.fontSize);
+		if (!displayFontSize || isNaN(displayFontSize)) {
+			displayFontSize = parseFloat(window.getComputedStyle(namedisplay).fontSize) || 72;
+		}
+		namedisplay.style.fontSize = clampFontSize(displayFontSize + (direction * scatterWheelStepPx)) + 'px';
+		event.preventDefault();
+	}
+}
+
 window.addEventListener('pointerdown', beginScatterDrag, { passive: false });
 window.addEventListener('pointermove', moveScatterDrag, { passive: false });
 window.addEventListener('pointerup', endScatterDrag, { passive: false });
 window.addEventListener('pointercancel', endScatterDrag, { passive: false });
+window.addEventListener('pointerup', endCenterResizeHold, { passive: false });
+window.addEventListener('pointercancel', endCenterResizeHold, { passive: false });
+window.addEventListener('wheel', resizeActiveScatterLetterWithWheel, { passive: false });
 
 var letterValues = {
 	'א': 1,
@@ -1035,6 +1159,30 @@ function updateFireState() {
 	}
 }
 
+function updateNoInvertEmojiTargets() {
+	var clipboardButtons = document.querySelectorAll('.chosen-clipboard-btn');
+	for (var i = 0; i < clipboardButtons.length; i++) {
+		var button = clipboardButtons[i];
+		var buttonText = button.textContent || '';
+		button.classList.remove('emoji-no-invert');
+		if (buttonText.indexOf('📋') !== -1) {
+			button.classList.add('emoji-no-invert');
+		}
+	}
+
+	var randomTextTargets = document.querySelectorAll('.chosen-container .chosen-single span, .chosen-container .chosen-results li');
+	for (var j = 0; j < randomTextTargets.length; j++) {
+		var el = randomTextTargets[j];
+		el.classList.remove('emoji-no-invert');
+		var text = el.textContent || '';
+		if (text.indexOf('🎲') === -1) {
+			continue;
+		}
+		var escaped = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+		el.innerHTML = escaped.replace(/🎲/g, '<span class="emoji-no-invert">🎲</span>');
+	}
+}
+
 function setInvertedTheme(enabled) {
 	isInvertedTheme = !!enabled;
 	if (isInvertedTheme) {
@@ -1057,6 +1205,7 @@ function setInvertedTheme(enabled) {
 	} catch (err) {
 		// Ignore storage errors to keep toggle functional.
 	}
+	updateNoInvertEmojiTargets();
 }
 
 if (fireIcon) {
@@ -1099,6 +1248,18 @@ if (diceIcon) {
 	});
 }
 
+if (minusIcon) {
+	minusIcon.addEventListener('click', function() {
+		adjustDisplayFontSize(-3);
+	});
+}
+
+if (plusIcon) {
+	plusIcon.addEventListener('click', function() {
+		adjustDisplayFontSize(3);
+	});
+}
+
 if (themeToggleIcon) {
 	themeToggleIcon.addEventListener('click', function() {
 		setInvertedTheme(!isInvertedTheme);
@@ -1106,6 +1267,7 @@ if (themeToggleIcon) {
 }
 
 if (namedisplay) {
+	namedisplay.addEventListener('pointerdown', beginCenterResizeHold, { passive: false });
 	namedisplay.addEventListener('dblclick', function() {
 		toggleNameDisplayMode();
 	});
